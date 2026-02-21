@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akshay Mohanan | Media Gallery</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="glass-bg"></div>
+
+    <header>
+        <h1 id="main-heading" contenteditable="false">AKSHAY MOHANAN</h1>
+        <button id="admin-login-btn" class="glass-btn">Admin Access</button>
+    </header>
+
+    <main>
+        <div id="admin-panel" class="glass-card hidden">
+            <h2 id="admin-panel-title">Add New Media</h2>
+            <form id="upload-form">
+                <input type="hidden" id="edit-id" value="">
+                <div class="form-group">
+                    <label for="media-input">Photos / Videos</label>
+                    <input type="file" id="media-input" accept="image/*,video/*" required>
+                </div>
+                <div class="form-group">
+                    <label for="description-input">Description</label>
+                    <textarea id="description-input" placeholder="Tell the story behind this media..."
+                        required></textarea>
+                </div>
+                <button type="submit" class="glass-btn primary">Upload to Gallery</button>
+                <button type="button" id="close-admin-btn" class="glass-btn secondary">Close</button>
+            </form>
+            <div class="admin-actions">
+                <button id="toggle-edit-heading" class="glass-btn">Edit Page Heading</button>
+            </div>
+        </div>
+
+        <section id="gallery-feed" class="gallery-grid">
+            <!-- Media items will be injected here -->
+        </section>
+    </main>
+
+    <div id="password-modal" class="modal-overlay hidden">
+        <div class="glass-card modal-content">
+            <h3>Authentication Required</h3>
+            <p>Please enter the administrator password to continue.</p>
+            <input type="password" id="password-input" placeholder="Enter Password">
+            <div class="modal-buttons">
+                <button id="submit-password" class="glass-btn primary">Unlock</button>
+                <button id="cancel-password" class="glass-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
