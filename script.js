@@ -1,12 +1,12 @@
 // --- FIREBASE CONFIGURATION ---
-// PASTE YOUR CONFIG HERE
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDDLAOWQCGx-KtO9N8-wxlXUNOHBqGmi0E",
+    authDomain: "akshay-gallery.firebaseapp.com",
+    projectId: "akshay-gallery",
+    storageBucket: "akshay-gallery.firebasestorage.app",
+    messagingSenderId: "506612823895",
+    appId: "1:506612823895:web:0adb35d5c31a8f54e4f012",
+    measurementId: "G-KWRJJ3SQV3"
 };
 
 // Initialize Firebase if config is provided
