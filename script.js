@@ -13,7 +13,7 @@ const firebaseConfig = {
 let db, storage, itemsCol, settingsDoc;
 const { initializeApp, getFirestore, getStorage } = window.firebaseModules;
 const { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, setDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-const { ref, uploadBytes, getDownloadURL, deleteObject } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js");
+const { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js");
 
 const ADMIN_PASSWORD = "abhi9400";
 
@@ -31,6 +31,8 @@ const galleryFeed = document.getElementById('gallery-feed');
 const closeAdminBtn = document.getElementById('close-admin-btn');
 const toggleEditHeading = document.getElementById('toggle-edit-heading');
 const loadingOverlay = document.getElementById('loading-overlay');
+const progressBar = document.getElementById('progress-bar');
+const loadingText = document.getElementById('loading-text');
 
 const passwordModal = document.getElementById('password-modal');
 const passwordInput = document.getElementById('password-input');
@@ -191,6 +193,58 @@ toggleEditHeading.addEventListener('click', async () => {
     }
 });
 
+// Image Compression Helper
+async function compressImage(file, { maxWidth = 1920, maxHeight = 1080, quality = 0.7 } = {}) {
+    if (!file.type.startsWith('image/')) return file; // Skip compression for non-images (videos)
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Calculate dimensions
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    } else {
+                        reject(new Error("Canvas to Blob conversion failed"));
+                    }
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+}
+
 // Upload / Update Handling
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -200,19 +254,47 @@ uploadForm.addEventListener('submit', async (e) => {
     const editId = editIdInput.value;
 
     showLoader(true);
+    progressBar.style.width = '0%';
 
     try {
+        let finalFile = file;
+
+        // Compress image if it's an image
+        if (file && file.type.startsWith('image/')) {
+            loadingText.textContent = "Compressing image...";
+            progressBar.style.width = '50%'; // Visual placeholder for compression
+            finalFile = await compressImage(file);
+        }
+
+        loadingText.textContent = "Starting upload...";
+        progressBar.style.width = '0%';
+
         if (editId) {
             // Update Existing
             const updateData = { description };
             if (file) {
-                const storagePath = `uploads/${Date.now()}_${file.name}`;
+                const storagePath = `uploads/${Date.now()}_${finalFile.name}`;
                 const fileRef = ref(storage, storagePath);
-                await uploadBytes(fileRef, file);
-                const url = await getDownloadURL(fileRef);
-                updateData.url = url;
-                updateData.type = file.type.startsWith('image/') ? 'image' : 'video';
-                updateData.storagePath = storagePath;
+
+                const uploadTask = uploadBytesResumable(fileRef, finalFile);
+
+                await new Promise((resolve, reject) => {
+                    uploadTask.on('state_changed',
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            progressBar.style.width = progress + '%';
+                            loadingText.textContent = `Uploading: ${Math.round(progress)}%`;
+                        },
+                        (error) => reject(error),
+                        async () => {
+                            const url = await getDownloadURL(uploadTask.snapshot.ref);
+                            updateData.url = url;
+                            updateData.type = finalFile.type.startsWith('image/') ? 'image' : 'video';
+                            updateData.storagePath = storagePath;
+                            resolve();
+                        }
+                    );
+                });
 
                 // Optional: Delete old file if storagePath exists
                 const oldItem = galleryItems.find(i => i.id === editId);
@@ -226,17 +308,31 @@ uploadForm.addEventListener('submit', async (e) => {
             // New Upload
             if (!file) throw new Error("File required");
 
-            const storagePath = `uploads/${Date.now()}_${file.name}`;
+            const storagePath = `uploads/${Date.now()}_${finalFile.name}`;
             const fileRef = ref(storage, storagePath);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
 
-            await addDoc(itemsCol, {
-                type: file.type.startsWith('image/') ? 'image' : 'video',
-                url: url,
-                storagePath: storagePath,
-                description: description,
-                timestamp: new Date().toISOString()
+            const uploadTask = uploadBytesResumable(fileRef, finalFile);
+
+            await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        progressBar.style.width = progress + '%';
+                        loadingText.textContent = `Uploading: ${Math.round(progress)}%`;
+                    },
+                    (error) => reject(error),
+                    async () => {
+                        const url = await getDownloadURL(uploadTask.snapshot.ref);
+                        await addDoc(itemsCol, {
+                            type: finalFile.type.startsWith('image/') ? 'image' : 'video',
+                            url: url,
+                            storagePath: storagePath,
+                            description: description,
+                            timestamp: new Date().toISOString()
+                        });
+                        resolve();
+                    }
+                );
             });
             alert("Uploaded successfully!");
         }

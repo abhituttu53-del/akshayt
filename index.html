@@ -47,8 +47,13 @@
     </main>
 
     <div id="loading-overlay" class="modal-overlay hidden">
-        <div class="loader"></div>
-        <p>Processing...</p>
+        <div class="loader-container">
+            <div class="loader"></div>
+            <div class="progress-container">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+            <p id="loading-text">Processing...</p>
+        </div>
     </div>
 
     <div id="password-modal" class="modal-overlay hidden">
