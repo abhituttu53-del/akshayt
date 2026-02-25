@@ -16,6 +16,8 @@ const { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderB
 const { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js");
 
 const ADMIN_PASSWORD = "abhi9400";
+const AUTH_TOKEN_KEY = "akshay_gallery_auth_token";
+const AUTH_TOKEN_VALUE = "authorized_device_token_9400"; // Unique token for this computer
 
 // Selectors
 const mainHeading = document.getElementById('main-heading');
@@ -41,11 +43,28 @@ const cancelPassword = document.getElementById('cancel-password');
 
 // State
 let isAdmin = false;
+let isDeviceAuthorized = localStorage.getItem(AUTH_TOKEN_KEY) === AUTH_TOKEN_VALUE;
 let galleryItems = [];
 let currentHeading = "AKSHAY MOHANAN";
 
 // Initialization
 async function init() {
+    // Check if this is the admin's computer
+    if (isDeviceAuthorized) {
+        adminLoginBtn.classList.remove('hidden');
+        adminLoginBtn.textContent = "Admin Control Panel";
+    } else {
+        // If not authorized, hide the login button so others can't see it easily
+        adminLoginBtn.classList.add('hidden');
+
+        // Secret way to show login for first-time pairing: 
+        // Double click the heading to show the login button
+        mainHeading.addEventListener('dblclick', () => {
+            adminLoginBtn.classList.remove('hidden');
+            adminLoginBtn.textContent = "Admin Login (First Time)";
+        });
+    }
+
     if (firebaseConfig.apiKey === "YOUR_API_KEY") {
         alert("Please configure your Firebase credentials in script.js to enable global sync!");
         return;
@@ -58,18 +77,17 @@ async function init() {
         itemsCol = collection(db, "items");
         settingsDoc = doc(db, "settings", "main");
 
-        // Listen for Heading changes
+        // Listen for Heading changes (Public)
         onSnapshot(settingsDoc, (docSnap) => {
             if (docSnap.exists()) {
                 currentHeading = docSnap.data().heading || "AKSHAY MOHANAN";
                 mainHeading.textContent = currentHeading;
             } else {
-                // Initialize default heading if not exists
                 setDoc(settingsDoc, { heading: "AKSHAY MOHANAN" });
             }
         });
 
-        // Listen for Gallery changes
+        // Listen for Gallery changes (Public)
         const q = query(itemsCol, orderBy("timestamp", "desc"));
         onSnapshot(q, (snapshot) => {
             galleryItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -81,8 +99,10 @@ async function init() {
     }
 }
 
-// Global scope functions for HTML onclick
+// ... (editItem and deleteItem remain, but will check authorization)
+
 window.editItem = (id) => {
+    if (!localStorage.getItem(AUTH_TOKEN_KEY)) return; // Double check auth
     const item = galleryItems.find(i => i.id === id);
     if (!item) return;
 
@@ -98,6 +118,10 @@ window.editItem = (id) => {
 };
 
 window.deleteItem = async (id) => {
+    if (!localStorage.getItem(AUTH_TOKEN_KEY)) {
+        alert("Unauthorized device.");
+        return;
+    }
     if (!confirm("Are you sure you want to delete this item?")) return;
 
     showLoader(true);
@@ -152,13 +176,18 @@ function closePasswordModal() {
 
 submitPassword.addEventListener('click', () => {
     if (passwordInput.value === ADMIN_PASSWORD) {
+        // Correct Password -> Authorize this computer permanently
+        localStorage.setItem(AUTH_TOKEN_KEY, AUTH_TOKEN_VALUE);
+        isDeviceAuthorized = true;
         isAdmin = true;
+
         document.body.classList.add('admin-active');
         closePasswordModal();
         adminPanel.classList.remove('hidden');
-        adminLoginBtn.textContent = "Admin Mode Active";
+        adminLoginBtn.textContent = "Admin Mode Active (This Computer Only)";
+        adminLoginBtn.classList.remove('hidden');
         renderGallery();
-        alert("Access Granted!");
+        alert("Device Authorized! Only this computer can now access these tools.");
     } else {
         alert("Incorrect Password!");
     }
@@ -248,6 +277,11 @@ async function compressImage(file, { maxWidth = 1920, maxHeight = 1080, quality 
 // Upload / Update Handling
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (!localStorage.getItem(AUTH_TOKEN_KEY)) {
+        alert("Error: Only authorized devices can upload.");
+        return;
+    }
 
     const file = mediaInput.files[0];
     const description = descriptionInput.value;
